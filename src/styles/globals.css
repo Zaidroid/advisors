@@ -1,0 +1,181 @@
+@import "tailwindcss";
+
+/* ─── Brand Design Tokens ─────────────────────────── */
+:root {
+  --brand-primary: #DE6336;
+  --brand-secondary: #309DC4;
+  --brand-dark: #1F3036;
+  --brand-accent: #E78B3F;
+  --brand-ink: #1F3036;
+  --surface-base: #FFFFFF;
+  --surface-soft: #FAFAF7;
+  --surface-muted: #F1F1EC;
+  --surface-border: #E6E6DF;
+  --shadow-card: 0 4px 12px rgba(31,48,54,0.05);
+  --shadow-pop: 0 18px 48px rgba(31,48,54,0.18);
+  --radius-card: 10px;
+}
+
+/* ─── Base ────────────────────────────────────────── */
+html, body {
+  background: var(--surface-soft);
+  color: var(--brand-dark);
+  font-family: "Source Sans 3", "Tajawal", system-ui, sans-serif;
+  font-feature-settings: "ss01", "ss02";
+}
+
+[dir="rtl"] body {
+  font-family: "Tajawal", "Source Sans 3", sans-serif;
+}
+
+/* ─── Scrollbar ───────────────────────────────────── */
+.scroll-slim::-webkit-scrollbar { width: 6px; height: 6px; }
+.scroll-slim::-webkit-scrollbar-thumb { background: #D6D6CC; border-radius: 8px; }
+.scroll-slim::-webkit-scrollbar-track { background: transparent; }
+
+/* ─── Animations ──────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(222,99,54,0.2); }
+  50%      { box-shadow: 0 0 0 8px rgba(222,99,54,0); }
+}
+
+.fade-in     { animation: fadeIn 0.2s ease; }
+.slide-up    { animation: slideUp 0.3s ease; }
+.pulse-glow  { animation: pulse-glow 2s infinite; }
+
+/* ─── Score Ring SVG ──────────────────────────────── */
+.score-ring           { transform: rotate(-90deg); }
+.score-ring-track     { stroke: #EDEDE5; }
+.score-ring-fill      { transition: stroke-dashoffset 0.5s ease; }
+
+/* ─── Cards ───────────────────────────────────────── */
+.card {
+  background: var(--surface-base);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.card-hover {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(31,48,54,0.08);
+}
+
+/* ─── Badges & Pills ──────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.pill { border-radius: 999px; }
+
+/* ─── Category Colors ─────────────────────────────── */
+.cat-ceo  { background: #FEF3EB; color: #C05621; border: 1px solid #FED7AA; }
+.cat-cto  { background: #EBF5FF; color: #2563EB; border: 1px solid #BFDBFE; }
+.cat-coo  { background: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; }
+.cat-unq  { background: #F5F5F4; color: #6B706E; border: 1px solid #E6E6DF; }
+
+/* ─── Stale / OK Tags ────────────────────────────── */
+.stale-tag { background: #FEF3EB; color: #B45309; border: 1px solid #FED7AA; }
+.ok-tag    { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+
+/* ─── Buttons ─────────────────────────────────────── */
+.btn-primary {
+  background: var(--brand-primary);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #C9552A; }
+
+.btn-secondary {
+  background: #fff;
+  color: var(--brand-dark);
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid var(--surface-border);
+  transition: background 0.15s;
+}
+.btn-secondary:hover { background: var(--surface-soft); }
+
+.btn-tiny {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--surface-border);
+  background: #fff;
+  transition: background 0.15s;
+}
+.btn-tiny:hover { background: var(--surface-soft); }
+
+.btn-danger {
+  background: #fff;
+  color: #B91C1C;
+  border: 1px solid #FECACA;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.btn-danger:hover { background: #FEF2F2; }
+
+/* ─── Modal ───────────────────────────────────────── */
+.modal-backdrop {
+  background: rgba(31,48,54,0.6);
+  backdrop-filter: blur(4px);
+}
+
+/* ─── Stat widgets ────────────────────────────────── */
+.stat-num   { font-size: 28px; font-weight: 700; color: var(--brand-dark); line-height: 1; }
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #6B706E; font-weight: 600; }
+.section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6B706E; }
+
+/* ─── Progress bar ────────────────────────────────── */
+.progress-bar { height: 6px; background: #EDEDE5; border-radius: 999px; overflow: hidden; }
+.progress-fill { height: 100%; transition: width 0.3s ease; }
+
+/* ─── Grid background pattern ─────────────────────── */
+.grid-bg {
+  background-image:
+    linear-gradient(var(--surface-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--surface-border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.35;
+}
+
+/* ─── Focus ring ──────────────────────────────────── */
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(48,157,196,0.25);
+}
+
+/* ─── Tabular numbers ─────────────────────────────── */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* ─── Avatar gradient ─────────────────────────────── */
+.avatar-gradient {
+  background: radial-gradient(circle at 30% 25%, #F4D6C9 0%, #E9B79E 55%, #DE6336 100%);
+}
