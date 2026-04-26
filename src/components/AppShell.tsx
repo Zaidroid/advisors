@@ -44,6 +44,23 @@ export default function AppShell() {
     refresh, setTracker, setFollowUps, setActivities, setComments,
   } = useData();
 
+  // After every write, force a fresh fetch from the sheet so the server's
+  // authoritative row always wins over the optimistic local state. Without
+  // this, an optimistic update can shadow a value that another user (or the
+  // same user editing the sheet directly) just wrote, until the next 30-second
+  // poll lands.
+  const writeAndSync = useCallback(async (work: () => Promise<void>) => {
+    try {
+      await work();
+    } catch (err) {
+      console.error('Write failed:', err);
+    } finally {
+      // Re-fetch even on failure so the optimistic state is rolled back to
+      // whatever the server actually has.
+      refresh().catch(console.error);
+    }
+  }, [refresh]);
+
   const { user, signOut } = useAuth();
 
   // How many seconds since last refresh
@@ -74,7 +91,7 @@ export default function AppShell() {
   // ─── Handlers that write to Google Sheets ───
 
   const handleStatusChange = useCallback(async (advisorId: string, newStatus: AdvisorStatus) => {
-    try {
+    await writeAndSync(async () => {
       const adv = enrichedAdvisors.find(a => a.id === advisorId);
       const oldStatus = adv?.tracker?.status || 'new';
 
@@ -115,13 +132,11 @@ export default function AppShell() {
         newValue: newStatus,
         details: '',
       }, ...prev]);
-    } catch (err) {
-      console.error('Failed to update status:', err);
-    }
-  }, [enrichedAdvisors, user, setTracker, setActivities]);
+    });
+  }, [enrichedAdvisors, user, setTracker, setActivities, writeAndSync]);
 
   const handleTrackerUpdate = useCallback(async (advisorId: string, updates: Partial<any>) => {
-    try {
+    await writeAndSync(async () => {
       const adv = enrichedAdvisors.find(a => a.id === advisorId);
       const existingTracker = adv?.tracker || {} as any;
 
@@ -177,13 +192,11 @@ export default function AppShell() {
       });
 
       setActivities(prev => [...newActivities.reverse(), ...prev]);
-    } catch (err) {
-      console.error('Failed to update tracker:', err);
-    }
-  }, [enrichedAdvisors, user, setTracker, setActivities]);
+    });
+  }, [enrichedAdvisors, user, setTracker, setActivities, writeAndSync]);
 
   const handleAddComment = useCallback(async (advisorId: string, text: string) => {
-    try {
+    await writeAndSync(async () => {
       const id = `cmt_${Date.now()}`;
       await addComment(advisorId, id, user?.email || '', text);
 
@@ -196,34 +209,28 @@ export default function AppShell() {
         body: text,
         resolved: false,
       }]);
-    } catch (err) {
-      console.error('Failed to add comment:', err);
-    }
-  }, [user, setComments]);
+    });
+  }, [user, setComments, writeAndSync]);
 
   const handleCreateFollowUp = useCallback(async (fu: any) => {
-    try {
+    await writeAndSync(async () => {
       const id = `fu_${Date.now()}`;
       await addFollowUp({ ...fu, id });
 
       setFollowUps(prev => [...prev, { ...fu, id, completedAt: '' }]);
-    } catch (err) {
-      console.error('Failed to create follow-up:', err);
-    }
-  }, [setFollowUps]);
+    });
+  }, [setFollowUps, writeAndSync]);
 
   const handleCompleteFollowUp = useCallback(async (id: string) => {
-    try {
+    await writeAndSync(async () => {
       await completeFollowUp(id);
 
       setFollowUps(prev => prev.map(f => f.id === id
         ? { ...f, status: 'done' as const, completedAt: new Date().toISOString() }
         : f
       ));
-    } catch (err) {
-      console.error('Failed to complete follow-up:', err);
-    }
-  }, [setFollowUps]);
+    });
+  }, [setFollowUps, writeAndSync]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">

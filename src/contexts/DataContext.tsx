@@ -67,7 +67,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setFollowUps(fups);
       setActivities(acts);
       setComments(cmts);
-      setTeam(tm.length > 0 ? tm : team);
+      // Use functional setState so we never need `team` in the dep array.
+      // Reading `team` from closure was making `loadAll` re-create on every
+      // successful poll, which tore down and rebuilt the polling interval and
+      // pushed the next tick further out each cycle (drift).
+      setTeam(prev => tm.length > 0 ? tm : prev);
       setLastRefresh(new Date().toISOString());
     } catch (err) {
       console.error('Data load error:', err);
@@ -75,7 +79,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [config, team]);
+  }, [config]);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
