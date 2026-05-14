@@ -76,83 +76,115 @@ export function getApiStatus() {
 
 // ─── READ: Responses Sheet ───────────────────────────
 
+/** Parse year from any common timestamp format (US "M/D/YYYY" or ISO "YYYY-MM-DD..."). */
+function parseYear(ts: string): number {
+  const us = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(ts);
+  if (us) return parseInt(us[3], 10);
+  const iso = /^(\d{4})-/.exec(ts);
+  if (iso) return parseInt(iso[1], 10);
+  return 0;
+}
+
+/** Normalize timestamp + name into a dedup key. */
+function dedupKey(row: (string | number)[]): string {
+  const ts = String(row[0] || '').trim();
+  // Crude normalize: drop punctuation/timezone bits, keep date+hours+minutes
+  const tsNorm = ts.replace(/[TZ]/g, ' ').replace(/[-/:]/g, '').replace(/\s+/g, '').slice(0, 12);
+  const name = String(row[2] || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return `${tsNorm}|${name}`;
+}
+
+/** Resolve the list of responses sheet IDs from env or config. */
+function resolveResponseSheetIds(config: AppConfig): string[] {
+  const csv = import.meta.env.VITE_RESPONSES_SHEET_IDS as string | undefined;
+  if (csv) {
+    return csv.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  const single = (import.meta.env.VITE_RESPONSES_SHEET_ID as string | undefined)
+    || config.responsesSheetId;
+  return single ? [single] : [];
+}
+
 export async function fetchAdvisors(config: AppConfig = DEFAULT_CONFIG): Promise<Advisor[]> {
-  const sheetId = import.meta.env.VITE_RESPONSES_SHEET_ID || config.responsesSheetId;
-  if (!sheetId) return [];
+  const sheetIds = resolveResponseSheetIds(config);
+  if (sheetIds.length === 0) return [];
 
   const tabName = config.responsesTabName || 'Form Responses 1';
-  const url = rangeUrl(sheetId, `'${tabName}'!A:AC`) + '?valueRenderOption=FORMATTED_VALUE';
-
-  const data = await sheetsRequest<{ values?: (string | number)[][] }>(url);
-  if (!data.values || data.values.length < 2) {
-    console.warn('📊 No data in responses sheet. Tab:', tabName, 'Values:', data.values?.length || 0);
-    return [];
-  }
-
-  const [headers, ...rows] = data.values;
-  console.log('📊 Responses sheet loaded:', rows.length, 'rows,', headers.length, 'columns');
-
-  // Safe string getter — handles numbers, nulls, undefined
+  const filterYear = config.filter_year || 2026;
   const str = (val: unknown): string => (val == null ? '' : String(val));
 
-  // Parse year from Google Forms timestamp like "6/3/2024 15:35:20" or "1/15/2026 10:01:00"
-  const parseYear = (ts: string): number => {
-    const m = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(ts);
-    return m ? parseInt(m[3], 10) : 0;
-  };
+  // Fetch all configured sheets in parallel. A failure on one (e.g. permission)
+  // logs a warning but does not break the others.
+  const perSheet = await Promise.all(
+    sheetIds.map(async (sheetId, idx) => {
+      try {
+        const url = rangeUrl(sheetId, `'${tabName}'!A:AC`) + '?valueRenderOption=FORMATTED_VALUE';
+        const data = await sheetsRequest<{ values?: (string | number)[][] }>(url);
+        const rows = (data.values || []).slice(1); // drop header
+        console.log(`📊 Sheet ${idx + 1}/${sheetIds.length} (${sheetId.slice(0, 8)}…): ${rows.length} rows`);
+        return rows;
+      } catch (err) {
+        console.warn(`📊 Failed to fetch sheet ${sheetId.slice(0, 8)}…:`, err);
+        return [] as (string | number)[][];
+      }
+    }),
+  );
 
-  const filterYear = config.filter_year || 2026;
-
-  return rows
-    .filter(row => {
-      if (row.length < 6) return false;
+  // Merge + dedupe. Earlier sheets in the list win on conflict, so order env
+  // values with the canonical (richer) sheet first.
+  const seen = new Set<string>();
+  const merged: (string | number)[][] = [];
+  for (const rows of perSheet) {
+    for (const row of rows) {
+      if (row.length < 6) continue;
       const ts = str(row[0]).trim();
-      if (!ts) return false;
-      const year = parseYear(ts);
-      return year >= filterYear;
-    })
-    .map(row => {
-      const raw: Partial<Advisor> = {
-        timestamp: str(row[0]),
-        name: str(row[2]),
-        gender: str(row[3]),
-        country: str(row[4]),
-        email: str(row[5]),
-        whatsapp: str(row[6]),
-        linkedin: str(row[7]),
-        techRating: str(row[8]),
-        ecoRating: str(row[9]),
-        expAreas: str(row[10]),
-        expDetail: str(row[11]),
-        cLevel: str(row[12]),
-        cLevelDetail: str(row[13]),
-        position: str(row[14]),
-        employer: str(row[15]),
-        years: str(row[16]),
-        nonTechSubjects: str(row[17]),
-        gsgPast: str(row[18]),
-        paidOrVol: str(row[19]),
-        hourlyRate: str(row[20]),
-        cvLink: str(row[21]),
-        notes: str(row[22]),
-        heardFrom: str(row[23]),
-        opportunities: str(row[24]),
-        supportIn: str(row[25]),
-        supportVia: str(row[26]),
-        techSpecs: str(row[27]),
-        newsletter: str(row[28]),
-      };
+      if (!ts) continue;
+      if (parseYear(ts) < filterYear) continue;
+      const key = dedupKey(row);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(row);
+    }
+  }
+  console.log(`📊 Merged unique advisors: ${merged.length} (from ${sheetIds.length} sheet(s))`);
 
-      const id = makeAdvisorId(raw.timestamp!, raw.email!);
-      const { stage1, stage2 } = scoreAdvisor(raw, config);
+  return merged.map(row => {
+    const raw: Partial<Advisor> = {
+      timestamp: str(row[0]),
+      name: str(row[2]),
+      gender: str(row[3]),
+      country: str(row[4]),
+      email: str(row[5]),
+      whatsapp: str(row[6]),
+      linkedin: str(row[7]),
+      techRating: str(row[8]),
+      ecoRating: str(row[9]),
+      expAreas: str(row[10]),
+      expDetail: str(row[11]),
+      cLevel: str(row[12]),
+      cLevelDetail: str(row[13]),
+      position: str(row[14]),
+      employer: str(row[15]),
+      years: str(row[16]),
+      nonTechSubjects: str(row[17]),
+      gsgPast: str(row[18]),
+      paidOrVol: str(row[19]),
+      hourlyRate: str(row[20]),
+      cvLink: str(row[21]),
+      notes: str(row[22]),
+      heardFrom: str(row[23]),
+      opportunities: str(row[24]),
+      supportIn: str(row[25]),
+      supportVia: str(row[26]),
+      techSpecs: str(row[27]),
+      newsletter: str(row[28]),
+    };
 
-      return {
-        ...raw,
-        id,
-        stage1,
-        stage2,
-      } as Advisor;
-    });
+    const id = makeAdvisorId(raw.timestamp!, raw.email!);
+    const { stage1, stage2 } = scoreAdvisor(raw, config);
+
+    return { ...raw, id, stage1, stage2 } as Advisor;
+  });
 }
 
 // ─── READ: Backend Tabs ──────────────────────────────

@@ -13,9 +13,6 @@ export const AUTHORIZED_USERS: TeamMember[] = [
   { email: 'muna@gazaskygeeks.com', name: 'Muna Mahroum', role: 'user', active: true },
   { email: 'mzourob@gazaskygeeks.com', name: 'Mohammed Zourob', role: 'user', active: true },
   { email: 'israa@gazaskygeeks.com', name: 'Israa Hamoudeh', role: 'user', active: true },
-  { email: 'mai@gazaskygeeks.com', name: 'Mai Al-Kahlout', role: 'user', active: true },
-  { email: 'saed@gazaskygeeks.com', name: 'Saed Aldeeb', role: 'user', active: true },
-  { email: 'lina@gazaskygeeks.com', name: 'Lina Marshoud', role: 'user', active: true },
 ];
 
 export const ALLOWED_DOMAIN = import.meta.env.VITE_DOMAIN_ALLOWLIST || 'gazaskygeeks.com';
